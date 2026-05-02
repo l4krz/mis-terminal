@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Military Intelligence Service | Live Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // TODO: Replace with YOUR actual config from Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyArIfIvKYaVNVZftvF_Sp9JLL2h05WTbI8",
+            authDomain: "mis-terminal.firebaseapp.com",
+            databaseURL: "https://mis-terminal-default-rtdb.firebaseio.com/",
+            projectId: "mis-terminal",
+            storageBucket: "mis-terminal.firebasestorage.app",
+            messagingSenderId: "15268285800",
+            appId: "1:15268285800:web:87214aa862eb9b78e61add"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const siteRef = ref(db, 'siteData');
+
+        // --- GLOBAL FUNCTIONS ---
+        window.saveData = (updatedData) => {
+            set(siteRef, updatedData);
+        };
+
+        window.addOpToFirebase = (newOp) => {
+            const opsRef = ref(db, 'siteData/operations');
+            push(opsRef, newOp);
+        };
+
+        // LIVE LISTEN: This updates the page for EVERYONE instantly
+        onValue(siteRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                window.siteData = data;
+                renderAll();
+            }
+        });
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        body { background-color: #05050a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .edit-icon { display: none; cursor: pointer; color: #6366f1; margin-left: 8px; }
+        .admin-mode .edit-icon { display: inline-block; }
+        .hidden-section { display: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <nav class="flex justify-between items-center max-w-6xl mx-auto mb-16">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center"><i data-lucide="shield" class="text-white"></i></div>
+            <h1 class="text-sm font-bold">MI Service <i data-lucide="pencil" class="edit-icon w-3 h-3" onclick="editField('heroTitle')"></i></h1>
+        </div>
+        <button id="auth-btn" onclick="handleAuth()" class="px-4 py-2 glass text-[10px] font-bold tracking-widest flex items-center gap-2">
+            <i data-lucide="lock" class="w-3 h-3"></i> <span id="login-text">Operative Login</span>
+        </button>
+    </nav>
+
+    <main id="section-home" class="max-w-6xl mx-auto">
+        <h2 id="txt-hero-title" class="text-5xl md:text-7xl font-bold mb-6">Military Intelligence Service</h2>
+        <p id="txt-hero-desc" class="max-w-2xl text-gray-400 text-lg mb-8">Loading secure intelligence...</p>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 border-t border-white/10 pt-12">
+            <div><h3 id="txt-stat-1" class="text-4xl font-bold text-indigo-500">...</h3><p class="text-[10px] text-gray-500 font-bold">OPERATIONS</p></div>
+            <div><h3 id="txt-stat-2" class="text-4xl font-bold text-indigo-500">...</h3><p class="text-[10px] text-gray-500 font-bold">OPERATIVES</p></div>
+        </div>
+
+        <div class="mt-20">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="mono text-indigo-500 text-xs">// OPERATIONS REGISTRY</h3>
+                <button onclick="openOpModal()" class="admin-panel hidden bg-indigo-600 px-4 py-2 rounded text-[10px] font-bold">CREATE OPERATION</button>
+            </div>
+            <div id="op-container" class="grid gap-4"></div>
+        </div>
+    </main>
+
+    <script>
+        let isAdmin = false;
+        window.siteData = {};
+
+        function handleAuth() {
+            const pass = prompt("Clearance:");
+            if (pass === "misadmin") {
+                isAdmin = true;
+                document.body.classList.add('admin-mode');
+                document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('hidden'));
+                renderAll();
+            }
+        }
+
+        function editField(key) {
+            if (!isAdmin) return;
+            const newVal = prompt(`Update ${key}:`, window.siteData[key]);
+            if (newVal) {
+                window.siteData[key] = newVal;
+                window.saveData(window.siteData);
+            }
+        }
+
+        function openOpModal() {
+            const title = prompt("Op Title:");
+            const desc = prompt("Op Description:");
+            if (title) window.addOpToFirebase({ title, desc, id: Date.now() });
+        }
+
+        function renderAll() {
+            document.getElementById('txt-hero-title').innerText = window.siteData.heroTitle || "MIS";
+            document.getElementById('txt-hero-desc').innerText = window.siteData.heroDesc || "";
+            document.getElementById('txt-stat-1').innerText = window.siteData.stat1 || "0";
+            document.getElementById('txt-stat-2').innerText = window.siteData.stat2 || "0";
+
+            const container = document.getElementById('op-container');
+            const ops = window.siteData.operations ? Object.values(window.siteData.operations) : [];
+            container.innerHTML = ops.map(op => `
+                <div class="glass p-4 rounded flex justify-between">
+                    <div><h4 class="font-bold uppercase">${op.title}</h4><p class="text-xs text-gray-500">${op.desc}</p></div>
+                    <span class="text-indigo-400 text-[10px] font-bold">ACTIVE</span>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
