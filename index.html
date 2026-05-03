@@ -3,19 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Military Intelligence Service | Live Terminal</title>
+    <title>Military Intelligence Service | Terminal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
-        body { background-color: #05050a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        body { background-color: #05050a; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         .mono { font-family: 'JetBrains Mono', monospace; }
-        .glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease; }
-        .glass:hover { background: rgba(255, 255, 255, 0.05); }
+        .glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glow-text { text-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
         .edit-icon { display: none; cursor: pointer; color: #6366f1; margin-left: 8px; vertical-align: middle; }
         .admin-mode .edit-icon { display: inline-block; }
-        .glow-text { text-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
+        .hidden-section { display: none; }
+        .active-tab { border-bottom: 2px solid #6366f1; color: white !important; }
+        
+        /* Modal Animation */
+        #custom-modal { display: none; }
+        .modal-active { display: flex !important; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Accordion Styles */
+        .op-details { max-height: 0; overflow: hidden; transition: all 0.3s ease-out; opacity: 0; }
+        .op-card.expanded .op-details { max-height: 500px; opacity: 1; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
     </style>
 
     <!-- Firebase System -->
@@ -37,141 +47,285 @@
         const db = getDatabase(app);
         const siteRef = ref(db, 'siteData');
 
-        // Initial Data Structure if Database is empty
         const defaultData = {
             heroTitle: "Military Intelligence Service",
-            heroDesc: "The eyes and ears of the British Army Academy.",
-            stat1: "200+",
-            stat2: "48",
+            heroDesc: "The eyes and ears of the British Army Academy. We gather, analyse, and act on intelligence to protect the realm.",
+            stat1: "200+", stat2: "48", stat3: "2", stat4: "1909",
             operations: {}
         };
 
-        // Attach Firebase actions to the global window object
-        window.saveField = (key, value) => {
-            set(ref(db, `siteData/${key}`), value);
-        };
+        window.saveField = (key, value) => { set(ref(db, `siteData/${key}`), value); };
+        window.addOp = (newOp) => { push(ref(db, 'siteData/operations'), newOp); };
+        window.deleteOpFromDb = (id) => { remove(ref(db, `siteData/operations/${id}`)); };
 
-        window.addOp = (newOp) => {
-            push(ref(db, 'siteData/operations'), newOp);
-        };
-
-        window.deleteOpFromDb = (id) => {
-            remove(ref(db, `siteData/operations/${id}`));
-        };
-
-        // Live Listener
         onValue(siteRef, (snapshot) => {
             const data = snapshot.val();
             window.siteData = data || defaultData;
-            if (!data) set(siteRef, defaultData); // Initialize DB if empty
+            if (!data) set(siteRef, defaultData);
             renderAll();
         });
     </script>
 </head>
 <body class="p-4 md:p-8">
 
+    <!-- MODAL POPUP -->
+    <div id="custom-modal" class="fixed inset-0 z-50 items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass max-w-md w-full p-8 border-indigo-500/30">
+            <h3 id="modal-title" class="mono text-indigo-400 text-xs tracking-widest mb-6 uppercase">// EDIT_ENTRY</h3>
+            <div id="modal-content" class="space-y-4">
+                <div id="field-input-group">
+                    <label id="modal-label" class="block text-[10px] text-gray-500 uppercase font-bold mb-2">Value</label>
+                    <input id="modal-input" type="text" class="w-full bg-white/5 border border-white/10 p-3 rounded focus:border-indigo-500 outline-none transition text-sm">
+                </div>
+                <!-- Password Group -->
+                <div id="auth-input-group" class="hidden space-y-4">
+                    <label class="block text-[10px] text-gray-500 uppercase font-bold">Clearance Password</label>
+                    <input id="modal-pass" type="password" class="w-full bg-white/5 border border-white/10 p-3 rounded focus:border-indigo-500 outline-none transition text-sm">
+                </div>
+                <!-- Operation Group -->
+                <div id="op-input-group" class="hidden space-y-4">
+                    <input id="op-title" placeholder="Operation Title" type="text" class="w-full bg-white/5 border border-white/10 p-3 rounded focus:border-indigo-500 outline-none transition text-sm">
+                    <textarea id="op-desc" placeholder="Mission Briefing" rows="4" class="w-full bg-white/5 border border-white/10 p-3 rounded focus:border-indigo-500 outline-none transition text-sm"></textarea>
+                    <div class="space-y-2">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold">Document / Drive Links (Unlimited)</label>
+                        <textarea id="op-links" placeholder="Enter links here (One per line)" rows="3" class="w-full bg-white/5 border border-white/10 p-3 rounded focus:border-indigo-500 outline-none transition text-sm"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-4 mt-8">
+                <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-white/10 text-[10px] font-bold tracking-widest uppercase hover:bg-white/5">Cancel</button>
+                <button id="modal-confirm" class="flex-1 px-4 py-2 bg-indigo-600 text-[10px] font-bold tracking-widest uppercase hover:bg-indigo-500">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
     <nav class="flex justify-between items-center max-w-6xl mx-auto mb-16">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <i data-lucide="shield" class="text-white w-6 h-6"></i>
+                <i data-lucide="shield" class="w-6 h-6 text-white"></i>
             </div>
-            <h1 class="text-sm font-bold uppercase tracking-widest">
-                <span id="nav-title">MI Service</span>
-                <i data-lucide="pencil" class="edit-icon w-3 h-3" onclick="editField('heroTitle')"></i>
-            </h1>
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.2em] text-indigo-400 font-bold">British Army Academy</p>
+                <h1 class="text-sm font-bold tracking-tight">Military Intelligence Service <i data-lucide="pencil" class="edit-icon w-3 h-3" onclick="editField('heroTitle')"></i></h1>
+            </div>
         </div>
-        <button id="auth-btn" onclick="handleAuth()" class="px-4 py-2 glass text-[10px] font-bold tracking-widest flex items-center gap-2 hover:bg-white/10">
+        <div class="hidden md:flex gap-8 text-xs font-bold uppercase tracking-widest text-gray-400">
+            <button onclick="showSection('home')" id="nav-home" class="nav-btn active-tab hover:text-white transition py-2">Home</button>
+            <button onclick="showSection('sectors')" id="nav-sectors" class="nav-btn hover:text-white transition py-2">Sectors</button>
+            <button onclick="showSection('operations')" id="nav-operations" class="nav-btn hover:text-white transition py-2">Operations</button>
+        </div>
+        <button id="auth-btn" onclick="handleAuth()" class="px-4 py-2 glass text-[10px] font-bold tracking-widest flex items-center gap-2 hover:bg-white/5 transition uppercase">
             <i data-lucide="lock" class="w-3 h-3"></i> <span id="login-text">Operative Login</span>
         </button>
     </nav>
 
-    <main class="max-w-6xl mx-auto">
-        <header class="mb-12">
-            <p class="mono text-indigo-500 text-[10px] mb-4 tracking-[0.3em] uppercase">// Classification: Top Secret</p>
+    <!-- SECTION: HOME -->
+    <main id="section-home" class="content-section max-w-6xl mx-auto">
+        <header class="mb-20">
+            <p class="mono text-indigo-500 text-xs mb-4 tracking-widest">// CLASSIFICATION: TOP SECRET</p>
             <h2 id="txt-hero-title" class="text-5xl md:text-7xl font-bold mb-6 glow-text tracking-tight">Loading...</h2>
-            <p class="max-w-2xl text-gray-400 text-lg leading-relaxed">
-                <span id="txt-hero-desc">Establishing secure uplink to terminal...</span>
+            <p class="max-w-2xl text-gray-400 leading-relaxed text-lg mb-8">
+                <span id="txt-hero-desc">Connecting to database...</span>
                 <i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('heroDesc')"></i>
             </p>
+            <div class="flex gap-4">
+                <button onclick="showSection('operations')" class="bg-indigo-600 px-6 py-3 rounded font-bold text-xs uppercase tracking-widest hover:bg-indigo-500 transition">View Operations →</button>
+                <button onclick="showSection('sectors')" class="glass px-6 py-3 rounded font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition">Explore Sectors</button>
+            </div>
         </header>
-        
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 border-t border-white/10 pt-12 mb-20">
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-24 border-t border-white/10 pt-12">
             <div>
-                <h3 class="text-4xl font-bold text-indigo-500">
-                    <span id="txt-stat-1">...</span>
-                    <i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat1')"></i>
-                </h3>
-                <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-2">Operations</p>
+                <h3 class="text-4xl font-bold text-indigo-500"><span id="txt-stat-1">...</span><i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat1')"></i></h3>
+                <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mt-2">Operations</p>
             </div>
             <div>
-                <h3 class="text-4xl font-bold text-indigo-500">
-                    <span id="txt-stat-2">...</span>
-                    <i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat2')"></i>
-                </h3>
-                <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-2">Active Operatives</p>
+                <h3 class="text-4xl font-bold text-indigo-500"><span id="txt-stat-2">...</span><i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat2')"></i></h3>
+                <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mt-2">Active Operatives</p>
+            </div>
+            <div>
+                <h3 class="text-4xl font-bold text-indigo-500"><span id="txt-stat-3">...</span><i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat3')"></i></h3>
+                <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mt-2">Sectors</p>
+            </div>
+            <div>
+                <h3 class="text-4xl font-bold text-indigo-500"><span id="txt-stat-4">...</span><i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat4')"></i></h3>
+                <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mt-2">Established</p>
             </div>
         </div>
-
-        <section>
-            <div class="flex justify-between items-end mb-8">
-                <div>
-                    <h3 class="mono text-indigo-500 text-xs tracking-widest uppercase">// Operations Registry</h3>
-                    <p class="text-gray-500 text-[10px] uppercase mt-1">Live Feed - Restricted Access</p>
-                </div>
-                <button onclick="openOpModal()" class="admin-panel hidden bg-indigo-600 px-6 py-2 rounded text-[10px] font-bold tracking-widest hover:bg-indigo-500 transition">CREATE OPERATION</button>
-            </div>
-            <div id="op-container" class="grid gap-4">
-                <!-- Data injected here -->
-            </div>
-        </section>
     </main>
+
+    <!-- SECTION: SECTORS -->
+    <main id="section-sectors" class="content-section hidden-section max-w-6xl mx-auto">
+        <p class="mono text-indigo-500 text-xs mb-4 tracking-widest uppercase">// Sectors - Divisional Overview</p>
+        <h2 class="text-5xl font-bold mb-12 tracking-tight">Sectors of the Service</h2>
+        <div class="grid md:grid-cols-2 gap-8">
+            <div class="glass p-8 rounded-sm relative overflow-hidden">
+                <div class="flex justify-between items-start mb-12">
+                    <div>
+                        <p class="mono text-indigo-400 text-[10px] mb-2">// SECTOR 5</p>
+                        <h3 class="text-6xl font-bold">MI5</h3>
+                        <p class="text-gray-400 mt-2">Domestic Security & Counter-Intelligence</p>
+                    </div>
+                    <i data-lucide="shield-check" class="w-12 h-12 text-indigo-500/20"></i>
+                </div>
+                <div class="space-y-6">
+                    <div><p class="mono text-indigo-400 text-[10px] mb-2 uppercase">// Mission</p><p class="text-sm font-bold leading-relaxed">Defend the Academy and home territory from hostile state actors, insider threats, sabotage, and acts of subversion.</p></div>
+                    <div><p class="mono text-indigo-400 text-[10px] mb-2 uppercase">// Briefing</p><p class="text-xs text-gray-500 leading-relaxed">Sector 5 (MI5) operates within Academy borders. Its operatives investigate suspected infiltrators and monitor domestic threats.</p></div>
+                </div>
+            </div>
+            <div class="glass p-8 rounded-sm relative overflow-hidden">
+                <div class="flex justify-between items-start mb-12">
+                    <div>
+                        <p class="mono text-indigo-400 text-[10px] mb-2">// SECTOR 6</p>
+                        <h3 class="text-6xl font-bold">MI6</h3>
+                        <p class="text-gray-400 mt-2">Foreign Intelligence & Covert Operations</p>
+                    </div>
+                    <i data-lucide="globe" class="w-12 h-12 text-indigo-500/20"></i>
+                </div>
+                <div class="space-y-6">
+                    <div><p class="mono text-indigo-400 text-[10px] mb-2 uppercase">// Mission</p><p class="text-sm font-bold leading-relaxed">Collect intelligence abroad, run agents in hostile territory, and execute covert action against foreign threats.</p></div>
+                    <div><p class="mono text-indigo-400 text-[10px] mb-2 uppercase">// Briefing</p><p class="text-xs text-gray-500 leading-relaxed">Sector 6 (MI6) projects beyond Academy borders. Field officers cultivate foreign assets and provide strategic command.</p></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SECTION: OPERATIONS -->
+    <main id="section-operations" class="content-section hidden-section max-w-6xl mx-auto">
+        <div class="flex justify-between items-end mb-12">
+            <div>
+                <p class="mono text-indigo-500 text-xs mb-4 tracking-widest uppercase">// Case Files - Operations</p>
+                <h2 class="text-5xl font-bold tracking-tight">Operations Registry</h2>
+            </div>
+            <button onclick="openOpModal()" class="admin-panel hidden bg-indigo-600 px-6 py-3 rounded font-bold text-xs uppercase tracking-widest hover:bg-indigo-500 transition">Create Operation</button>
+        </div>
+        <div id="op-container" class="grid gap-4">
+            <!-- Placeholder -->
+            <div id="op-placeholder" class="glass p-12 rounded border-dashed border-white/10 text-center">
+                <p class="mono text-gray-600 text-xs uppercase tracking-widest">No active operations in registry.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="max-w-6xl mx-auto mt-24 pt-8 border-t border-white/5 flex justify-between items-center text-[10px] mono text-gray-600 uppercase tracking-[0.3em]">
+        <div>// Classified - Eyes Only</div>
+        <div>British Army Academy - MI Division</div>
+    </footer>
 
     <script>
         let isAdmin = false;
         window.siteData = {};
 
+        // --- UI CORE ---
+        function showSection(id) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden-section'));
+            document.getElementById('section-' + id).classList.remove('hidden-section');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active-tab'));
+            document.getElementById('nav-' + id).classList.add('active-tab');
+        }
+
         function handleAuth() {
             if (!isAdmin) {
-                const pass = prompt("Enter Clearance Credentials:");
-                if (pass === "misadmin") {
-                    isAdmin = true;
-                    document.body.classList.add('admin-mode');
-                    document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('hidden'));
-                    document.getElementById('login-text').innerText = "Logout";
-                } else {
-                    alert("ACCESS DENIED");
-                }
+                openModal('auth');
             } else {
                 isAdmin = false;
                 document.body.classList.remove('admin-mode');
                 document.querySelectorAll('.admin-panel').forEach(el => el.classList.add('hidden'));
                 document.getElementById('login-text').innerText = "Operative Login";
+                renderAll();
             }
-            renderAll();
         }
 
+        // --- MODAL CONTROLS ---
+        function openModal(type, key, currentVal) {
+            const modal = document.getElementById('custom-modal');
+            const confirmBtn = document.getElementById('modal-confirm');
+            const opGroup = document.getElementById('op-input-group');
+            const fieldGroup = document.getElementById('field-input-group');
+            const authGroup = document.getElementById('auth-input-group');
+
+            modal.classList.add('modal-active');
+            
+            // Hide all groups first
+            opGroup.classList.add('hidden');
+            fieldGroup.classList.add('hidden');
+            authGroup.classList.add('hidden');
+
+            if (type === 'field') {
+                fieldGroup.classList.remove('hidden');
+                document.getElementById('modal-title').innerText = `// EDIT_${key.toUpperCase()}`;
+                document.getElementById('modal-label').innerText = key;
+                document.getElementById('modal-input').value = currentVal;
+                
+                confirmBtn.onclick = () => {
+                    const newVal = document.getElementById('modal-input').value;
+                    if (newVal) window.saveField(key, newVal);
+                    closeModal();
+                };
+            } else if (type === 'operation') {
+                opGroup.classList.remove('hidden');
+                document.getElementById('modal-title').innerText = "// NEW_OPERATION";
+                
+                confirmBtn.onclick = () => {
+                    const title = document.getElementById('op-title').value;
+                    const desc = document.getElementById('op-desc').value;
+                    const links = document.getElementById('op-links').value;
+                    if (title && desc) {
+                        window.addOp({ 
+                            title, 
+                            desc, 
+                            links: links.split('\n').filter(l => l.trim() !== ''),
+                            timestamp: Date.now() 
+                        });
+                    }
+                    closeModal();
+                };
+            } else if (type === 'auth') {
+                authGroup.classList.remove('hidden');
+                document.getElementById('modal-title').innerText = "// SECURITY_CLEARANCE";
+                
+                confirmBtn.onclick = () => {
+                    const pass = document.getElementById('modal-pass').value;
+                    if (pass === "misadmin") {
+                        isAdmin = true;
+                        document.body.classList.add('admin-mode');
+                        document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('hidden'));
+                        document.getElementById('login-text').innerText = "Logout";
+                    } else {
+                        alert("Access Denied");
+                    }
+                    closeModal();
+                    renderAll();
+                };
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.remove('modal-active');
+            document.getElementById('op-title').value = '';
+            document.getElementById('op-desc').value = '';
+            document.getElementById('op-links').value = '';
+            document.getElementById('modal-pass').value = '';
+        }
+
+        function toggleOpCard(element) {
+            element.classList.toggle('expanded');
+        }
+
+        // --- BUTTON TRIGGERS ---
         function editField(key) {
             if (!isAdmin) return;
-            const newVal = prompt(`Update ${key}:`, window.siteData[key]);
-            if (newVal !== null) {
-                window.saveField(key, newVal);
-            }
+            openModal('field', key, window.siteData[key]);
         }
 
         function openOpModal() {
             if (!isAdmin) return;
-            const title = prompt("Operation Name:");
-            const desc = prompt("Mission Briefing:");
-            if (title && desc) {
-                window.addOp({ title, desc, timestamp: Date.now() });
-            }
+            openModal('operation');
         }
 
         function deleteOp(id) {
-            if (!isAdmin) return;
-            if (confirm("Permanently delete this intelligence file?")) {
-                window.deleteOpFromDb(id);
-            }
+            if (confirm("Delete file?")) window.deleteOpFromDb(id);
         }
 
         function renderAll() {
@@ -179,27 +333,43 @@
             document.getElementById('txt-hero-desc').innerText = window.siteData.heroDesc;
             document.getElementById('txt-stat-1').innerText = window.siteData.stat1;
             document.getElementById('txt-stat-2').innerText = window.siteData.stat2;
+            document.getElementById('txt-stat-3').innerText = window.siteData.stat3;
+            document.getElementById('txt-stat-4').innerText = window.siteData.stat4;
 
             const container = document.getElementById('op-container');
-            const opsEntries = window.siteData.operations ? Object.entries(window.siteData.operations) : [];
+            const ops = window.siteData.operations ? Object.entries(window.siteData.operations) : [];
             
-            if (opsEntries.length === 0) {
-                container.innerHTML = `<p class="text-gray-600 italic text-sm">No active operations in registry.</p>`;
+            if (ops.length === 0) {
+                container.innerHTML = `
+                <div id="op-placeholder" class="glass p-12 rounded border-dashed border-white/10 text-center w-full">
+                    <p class="mono text-gray-600 text-xs uppercase tracking-widest">No active operations in registry.</p>
+                </div>`;
             } else {
-                container.innerHTML = opsEntries.map(([id, op]) => `
-                    <div class="glass p-6 rounded flex justify-between items-center group">
-                        <div>
-                            <span class="text-[9px] mono text-indigo-500 tracking-tighter">// OP_ID: ${id.substring(1, 8)}</span>
-                            <h4 class="font-bold uppercase text-xl tracking-tight mt-1">${op.title}</h4>
-                            <p class="text-sm text-gray-400 mt-2 max-w-xl">${op.desc}</p>
+                container.innerHTML = ops.map(([id, op]) => `
+                    <div class="op-card glass p-6 rounded cursor-pointer group transition-all" onclick="toggleOpCard(this)">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="text-xl font-bold uppercase tracking-tight">${op.title}</h4>
+                                <div class="flex gap-2 items-center mt-1">
+                                    <span class="px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[9px] font-bold rounded uppercase tracking-tighter">Secure File</span>
+                                    <span class="text-[10px] text-gray-500 mono">ID: ${id.substring(1, 6)}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500 transition-transform"></i>
+                                ${isAdmin ? `<button onclick="event.stopPropagation(); deleteOp('${id}')" class="text-red-500 opacity-0 group-hover:opacity-100 transition hover:bg-red-500/10 p-1 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                            </div>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <span class="px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20">ACTIVE</span>
-                            ${isAdmin ? `
-                                <button onclick="deleteOp('${id}')" class="text-red-500/50 hover:text-red-500 transition">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                </button>
-                            ` : ''}
+                        <div class="op-details">
+                            <p class="text-sm text-gray-400 leading-relaxed mb-4">${op.desc}</p>
+                            <div class="space-y-2">
+                                <p class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Linked Intelligence:</p>
+                                ${op.links ? op.links.map(link => `
+                                    <a href="${link}" target="_blank" class="block p-2 bg-white/5 border border-white/5 rounded text-xs text-indigo-300 hover:border-indigo-500 truncate" onclick="event.stopPropagation()">
+                                        <i data-lucide="link" class="w-3 h-3 inline mr-2"></i>${link}
+                                    </a>
+                                `).join('') : '<p class="text-xs text-gray-600 italic">No links attached.</p>'}
+                            </div>
                         </div>
                     </div>
                 `).reverse().join('');
