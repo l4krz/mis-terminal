@@ -50,7 +50,7 @@
         const defaultData = {
             heroTitle: "Military Intelligence Service",
             heroDesc: "The eyes and ears of the British Army Academy. We gather, analyse, and act on intelligence to protect the realm.",
-            stat1: "200+", stat2: "48", stat3: "2", stat4: "1909",
+            stat1: "0", stat2: "48", stat3: "2", stat4: "1909",
             operations: {}
         };
 
@@ -137,7 +137,8 @@
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-24 border-t border-white/10 pt-12">
             <div>
-                <h3 class="text-4xl font-bold text-indigo-500"><span id="txt-stat-1">...</span><i data-lucide="pencil" class="edit-icon w-4 h-4" onclick="editField('stat1')"></i></h3>
+                <!-- Edit icon removed from stat1 as it is now automatic -->
+                <h3 class="text-4xl font-bold text-indigo-500"><span id="txt-stat-1">...</span></h3>
                 <p class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mt-2">Operations</p>
             </div>
             <div>
@@ -209,7 +210,7 @@
     </main>
 
     <footer class="max-w-6xl mx-auto mt-24 pt-8 border-t border-white/5 flex justify-between items-center text-[10px] mono text-gray-600 uppercase tracking-[0.3em]">
-        <div>// Public Acess</div>
+        <div>// PUBLIC ACCESS</div>
         <div>British Army Academy - MI Division</div>
     </footer>
 
@@ -331,14 +332,17 @@
         function renderAll() {
             document.getElementById('txt-hero-title').innerText = window.siteData.heroTitle;
             document.getElementById('txt-hero-desc').innerText = window.siteData.heroDesc;
-            document.getElementById('txt-stat-1').innerText = window.siteData.stat1;
+            
+            const container = document.getElementById('op-container');
+            const ops = window.siteData.operations ? Object.entries(window.siteData.operations) : [];
+            
+            // --- AUTOMATIC COUNTER LOGIC ---
+            document.getElementById('txt-stat-1').innerText = ops.length; // Uses the length of the operations list
+            
             document.getElementById('txt-stat-2').innerText = window.siteData.stat2;
             document.getElementById('txt-stat-3').innerText = window.siteData.stat3;
             document.getElementById('txt-stat-4').innerText = window.siteData.stat4;
 
-            const container = document.getElementById('op-container');
-            const ops = window.siteData.operations ? Object.entries(window.siteData.operations) : [];
-            
             if (ops.length === 0) {
                 container.innerHTML = `
                 <div id="op-placeholder" class="glass p-12 rounded border-dashed border-white/10 text-center w-full">
